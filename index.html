@@ -1,0 +1,798 @@
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Living Universe</title>
+
+<style>
+html,body{
+    margin:0;
+    overflow:hidden;
+    background:black;
+    width:100%;
+    height:100%;
+}
+
+canvas{
+    display:block;
+}
+
+/* The chapter "sigil": a tiny particle system that acts out the chapter. */
+#sigil{
+    position:absolute;
+    top:15px;
+    left:15px;
+    width:130px;
+    height:130px;
+    pointer-events:none;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="sigil" role="img" aria-label="Current chapter: Learning" width="260" height="260"></canvas>
+<canvas id="world" width="1173" height="915"></canvas>
+
+<script>
+
+/*
+===============================================================================
+
+THE LIVING UNIVERSE
+
+MISSION
+
+Create an infinite sequence of discoveries.
+
+The viewer should continuously move through:
+
+    understanding
+    ↓
+    uncertainty
+    ↓
+    discovery
+    ↓
+    understanding
+
+The simulation exists solely to create opportunities
+for revelation.
+
+===============================================================================
+
+NARRATIVE CELL
+
+Stillness
+↓
+Disturbance
+↓
+Curiosity
+↓
+Learning
+↓
+Connection
+↓
+Crisis
+↓
+Adaptation
+↓
+Harmony
+↓
+Transcendence
+
+Transcendence becomes the beginning
+of the next story.
+
+===============================================================================
+
+GUIDING PRINCIPLE
+
+An audience can't appreciate learning
+until they can observe adaptation.
+
+Adaptation must be visible.
+
+Every chapter must be recognizable.
+
+===============================================================================
+*/
+
+const canvas = document.getElementById("world");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+}
+
+resize();
+addEventListener("resize", resize);
+
+const AGENTS = [];
+const COUNT = 250;
+
+for(let i=0;i<COUNT;i++){
+
+    AGENTS.push({
+
+        x:Math.random()*canvas.width,
+        y:Math.random()*canvas.height,
+
+        vx:0,
+        vy:0,
+
+        learnedDX:0,
+        learnedDY:0,
+
+        age:Math.random()*1000
+
+    });
+
+}
+
+const chapters = [
+
+["Stillness",8000],
+["Disturbance",8000],
+["Curiosity",10000],
+["Learning",10000],
+["Connection",10000],
+["Crisis",7000],
+["Adaptation",10000],
+["Harmony",10000],
+["Transcendence",10000]
+
+];
+
+let chapterIndex = 0;
+let chapterStart = performance.now();
+let crisisTriggered = false;
+
+function currentChapter(){
+
+    return chapters[chapterIndex][0];
+
+}
+
+function nextChapter(){
+
+    chapterIndex++;
+
+    if(chapterIndex >= chapters.length){
+        chapterIndex = 0;
+    }
+
+    chapterStart = performance.now();
+    crisisTriggered = false;
+
+}
+
+function updateChapter(now){
+
+    const chapter = chapters[chapterIndex];
+
+    if(now - chapterStart > chapter[1]){
+        nextChapter();
+    }
+
+    // Chapter is now signalled by the sigil instead of text.
+    // Keep an accessible name in sync for screen readers.
+    sigilCanvas.setAttribute("aria-label","Current chapter: "+currentChapter());
+}
+
+function centerX(){
+    return canvas.width/2;
+}
+
+function centerY(){
+    return canvas.height/2;
+}
+
+function updateAgents(){
+
+    const chapter = currentChapter();
+
+    AGENTS.forEach((a,index)=>{
+
+        a.age++;
+
+        switch(chapter){
+
+            case "Stillness":
+
+                a.vx *= .98;
+                a.vy *= .98;
+
+                a.vx += Math.sin(a.age*.01)*0.002;
+                a.vy += Math.cos(a.age*.01)*0.002;
+
+                break;
+
+            case "Disturbance":
+
+                a.vx += (Math.random()-.5)*2;
+                a.vy += (Math.random()-.5)*2;
+
+                break;
+
+            case "Curiosity":
+
+                a.vx += (Math.random()-.5)*0.15;
+                a.vy += (Math.random()-.5)*0.15;
+
+                break;
+
+            case "Learning":
+
+                /*
+                Observable adaptation:
+                agents remember beneficial direction.
+                */
+
+                a.learnedDX += (Math.random()-.5)*0.02;
+                a.learnedDY += (Math.random()-.5)*0.02;
+
+                a.vx += a.learnedDX;
+                a.vy += a.learnedDY;
+
+                break;
+
+            case "Connection":
+
+                let neighbors = 0;
+                let avgX = 0;
+                let avgY = 0;
+
+                for(let b of AGENTS){
+
+                    if(a === b) continue;
+
+                    const dx = b.x-a.x;
+                    const dy = b.y-a.y;
+
+                    const d = Math.hypot(dx,dy);
+
+                    if(d < 80){
+
+                        avgX += b.x;
+                        avgY += b.y;
+
+                        neighbors++;
+
+                    }
+                }
+
+                if(neighbors){
+
+                    avgX/=neighbors;
+                    avgY/=neighbors;
+
+                    a.vx += (avgX-a.x)*0.0008;
+                    a.vy += (avgY-a.y)*0.0008;
+                }
+
+                break;
+
+            case "Crisis":
+
+                if(!crisisTriggered){
+
+                    crisisTriggered = true;
+
+                    AGENTS.forEach(agent=>{
+
+                        const dx = agent.x-centerX();
+                        const dy = agent.y-centerY();
+
+                        const d = Math.max(
+                            Math.hypot(dx,dy),
+                            1
+                        );
+
+                        agent.vx += dx/d*15;
+                        agent.vy += dy/d*15;
+
+                    });
+
+                }
+
+                break;
+
+            case "Adaptation":
+
+                a.vx *= .96;
+                a.vy *= .96;
+
+                a.vx += Math.sin(index*.4)*0.05;
+                a.vy += Math.cos(index*.4)*0.05;
+
+                break;
+
+            case "Harmony":
+
+                const circleAngle =
+                    (index/COUNT)*Math.PI*2;
+
+                const targetX =
+                    centerX() +
+                    Math.cos(circleAngle)*220;
+
+                const targetY =
+                    centerY() +
+                    Math.sin(circleAngle)*220;
+
+                a.vx += (targetX-a.x)*0.002;
+                a.vy += (targetY-a.y)*0.002;
+
+                break;
+
+            case "Transcendence":
+
+                const spiralAngle =
+                    (index*.18)+(performance.now()*0.001);
+
+                const radius =
+                    index * 1.25;
+
+                const spiralX =
+                    centerX() +
+                    Math.cos(spiralAngle)*radius;
+
+                const spiralY =
+                    centerY() +
+                    Math.sin(spiralAngle)*radius;
+
+                a.vx += (spiralX-a.x)*0.0015;
+                a.vy += (spiralY-a.y)*0.0015;
+
+                break;
+        }
+
+        a.vx *= .98;
+        a.vy *= .98;
+
+        a.x += a.vx;
+        a.y += a.vy;
+
+        if(a.x<0)a.x+=canvas.width;
+        if(a.x>canvas.width)a.x-=canvas.width;
+
+        if(a.y<0)a.y+=canvas.height;
+        if(a.y>canvas.height)a.y-=canvas.height;
+
+    });
+
+}
+
+function drawConnections(){
+
+    ctx.strokeStyle="rgba(100,180,255,.15)";
+    ctx.lineWidth=1;
+
+    for(let i=0;i<AGENTS.length;i++){
+
+        const a = AGENTS[i];
+
+        for(let j=i+1;j<AGENTS.length;j++){
+
+            const b = AGENTS[j];
+
+            const d = Math.hypot(
+                a.x-b.x,
+                a.y-b.y
+            );
+
+            if(d < 50){
+
+                ctx.beginPath();
+
+                ctx.moveTo(a.x,a.y);
+                ctx.lineTo(b.x,b.y);
+
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+function draw(){
+
+    ctx.fillStyle="rgba(0,0,0,.09)";
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    const chapter = currentChapter();
+
+    if(chapter==="Connection"){
+        drawConnections();
+    }
+
+    let color="#ffffff";
+
+    if(chapter==="Disturbance") color="#ff9944";
+    if(chapter==="Curiosity") color="#ffee66";
+    if(chapter==="Learning") color="#66ff88";
+    if(chapter==="Connection") color="#44ccff";
+    if(chapter==="Crisis") color="#ff3333";
+    if(chapter==="Adaptation") color="#cc88ff";
+    if(chapter==="Harmony") color="#ffffff";
+    if(chapter==="Transcendence") color="#88ffff";
+
+    for(let a of AGENTS){
+
+        ctx.beginPath();
+
+        ctx.arc(
+            a.x,
+            a.y,
+            2.5,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fillStyle=color;
+        ctx.fill();
+    }
+
+}
+
+/*
+===============================================================================
+
+CHAPTER SIGIL
+
+A small particle system in the upper left that *acts out* the current chapter
+instead of naming it. Each chapter gives the particles a different formation
+and a different way of moving, so the viewer learns to read the shapes:
+
+    Stillness      a small, dim cluster that slowly breathes
+    Disturbance    scattered particles jittering in all directions
+    Curiosity      a core with orbiters that stretch out and probe
+    Learning       random wanderers progressively snap onto a rising path
+    Connection     separate clusters, linked by lines, drifting together
+    Crisis         a burst outward to a trembling red rim
+    Adaptation     the debris reorganizes into an ordered lattice
+    Harmony        two concentric rings turning in opposite directions
+    Transcendence  a spiral galaxy that opens up and rises
+
+Particles ease toward per-chapter targets with a spring, so changing chapters
+reads as a visible morph from one shape into the next.
+
+===============================================================================
+*/
+
+const sigilCanvas = document.getElementById("sigil");
+const sctx = sigilCanvas.getContext("2d");
+
+const SIGIL_SIZE = 130;
+const SIGIL_N = 48;
+const SIGIL_R = 48;      // radius, in css pixels, of a unit of target space
+const SIGIL_C = SIGIL_SIZE/2;
+
+(function setupSigilCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    sigilCanvas.width = SIGIL_SIZE*dpr;
+    sigilCanvas.height = SIGIL_SIZE*dpr;
+    sctx.scale(dpr,dpr);
+})();
+
+const SIGIL_COLORS = {
+    Stillness:[170,180,200],
+    Disturbance:[255,153,68],
+    Curiosity:[255,238,102],
+    Learning:[102,255,136],
+    Connection:[68,204,255],
+    Crisis:[255,51,51],
+    Adaptation:[204,136,255],
+    Harmony:[255,255,255],
+    Transcendence:[136,255,255]
+};
+
+// Spring stiffness / damping and brightness per chapter
+const SIGIL_FEEL = {
+    Stillness:    {k:.03, damp:.85, alpha:.45},
+    Disturbance:  {k:.012,damp:.80, alpha:.95},
+    Curiosity:    {k:.06, damp:.84, alpha:.95},
+    Learning:     {k:.07, damp:.82, alpha:.95},
+    Connection:   {k:.05, damp:.86, alpha:.95},
+    Crisis:       {k:.18, damp:.78, alpha:1},
+    Adaptation:   {k:.06, damp:.84, alpha:.95},
+    Harmony:      {k:.08, damp:.88, alpha:1},
+    Transcendence:{k:.05, damp:.88, alpha:1}
+};
+
+const SIGIL = [];
+for(let i=0;i<SIGIL_N;i++){
+    SIGIL.push({
+        i,
+        u:i/SIGIL_N,                       // stable 0..1 identity
+        r1:Math.random(),                  // fixed per-particle randoms
+        r2:Math.random(),
+        r3:Math.random(),
+        bx:(Math.random()*2-1)*.85,        // a fixed "scattered" home
+        by:(Math.random()*2-1)*.85,
+        x:SIGIL_C+(Math.random()-.5)*60,
+        y:SIGIL_C+(Math.random()-.5)*60,
+        vx:0,
+        vy:0
+    });
+}
+
+let sigilColor = SIGIL_COLORS.Stillness.slice();
+let sigilAlpha = .45;
+let sigilPrevChapter = null;
+
+function clamp01(v){ return Math.max(0,Math.min(1,v)); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function easeInOut(t){ return t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+
+// Where particle p wants to be, in unit space (-1..1), for this chapter.
+// t = progress through the chapter (0..1), time = ms clock
+function sigilTarget(p,chapter,t,time){
+
+    const n = SIGIL_N;
+    const i = p.i;
+
+    switch(chapter){
+
+        case "Stillness": {
+            const a = p.u*Math.PI*2*3.7;
+            const r = (.10+.18*p.r1) * (1+.12*Math.sin(time*.0009+p.r2*6));
+            return [Math.cos(a)*r, Math.sin(a)*r];
+        }
+
+        case "Disturbance": {
+            // Scattered home; the kicks in sigilStep do most of the work.
+            return [p.bx*.9, p.by*.9];
+        }
+
+        case "Curiosity": {
+            // Core + orbiters. The orbit center wanders (a probe), and
+            // particles periodically stretch outward toward it.
+            if(i===0) return [0,0];
+            const cx = .30*Math.sin(time*.0007);
+            const cy = .30*Math.cos(time*.0011);
+            const speed = .0006 + p.r1*.0012;
+            const a = p.r2*Math.PI*2 + time*speed;
+            let r = .22 + p.r3*.50;
+            r *= 1 + .45*Math.max(0,Math.sin(time*.0022+p.r1*12));
+            return [cx+Math.cos(a)*r, cy+Math.sin(a)*r];
+        }
+
+        case "Learning": {
+            // Wanderers gradually "learn" the path. Particles with a lower
+            // rank snap on first, so you can watch order spread.
+            const learned = p.r1 < t*1.15;
+            if(learned){
+                const x = -.85 + 1.7*p.u;
+                const y = .6 - 1.2*p.u + .16*Math.sin(p.u*9);
+                return [x,y];
+            }
+            return [
+                p.bx + .18*Math.sin(time*.002+p.r2*9),
+                p.by + .18*Math.cos(time*.0017+p.r3*9)
+            ];
+        }
+
+        case "Connection": {
+            // Four clusters that creep toward one another.
+            const g = i%4;
+            const spread = lerp(.55,.28,easeInOut(t));
+            const gx = (g%2?1:-1)*spread;
+            const gy = (g<2?1:-1)*spread;
+            const a = p.r1*Math.PI*2 + time*.0005*(g%2?1:-1);
+            const r = .10 + p.r2*.16;
+            return [gx+Math.cos(a)*r, gy+Math.sin(a)*r];
+        }
+
+        case "Crisis": {
+            // Violent burst to the rim, then a nervous tremble.
+            const a = p.u*Math.PI*2 + p.r1*.5;
+            const burst = 1-Math.pow(1-clamp01(t*5),3);
+            const r = lerp(.1,.95,burst);
+            const shake = (1-clamp01(t*1.2))*.0 + .035;
+            return [
+                Math.cos(a)*r + (Math.random()-.5)*shake*2,
+                Math.sin(a)*r + (Math.random()-.5)*shake*2
+            ];
+        }
+
+        case "Adaptation": {
+            // Debris -> lattice, with a damped wobble so you can see the
+            // system "trying" arrangements before settling.
+            let m = t + .30*(1-t)*Math.sin(t*22);
+            m = clamp01(m);
+            m = easeInOut(m);
+            const cols = 8;
+            const rows = 6;
+            const gx = ((i%cols)-(cols-1)/2)/((cols-1)/2)*.8;
+            const gy = (Math.floor(i/cols)-(rows-1)/2)/((rows-1)/2)*.6;
+            return [
+                lerp(p.bx,gx,m),
+                lerp(p.by,gy,m)
+            ];
+        }
+
+        case "Harmony": {
+            // Two perfectly even rings turning against each other.
+            const inner = i%2===0;
+            const idx = Math.floor(i/2);
+            const per = n/2;
+            const dir = inner ? 1 : -1;
+            const a = (idx/per)*Math.PI*2 + dir*time*.00055;
+            const r = (inner ? .38 : .78) * (1+.03*Math.sin(time*.0012));
+            return [Math.cos(a)*r, Math.sin(a)*r];
+        }
+
+        case "Transcendence": {
+            // Spiral that opens out as the chapter progresses.
+            const open = lerp(.65,1,easeInOut(t));
+            const a = i*.36 + time*.0011;
+            const r = (.06 + p.u*.94)*open;
+            return [Math.cos(a)*r, Math.sin(a)*r - t*.10];
+        }
+    }
+
+    return [0,0];
+}
+
+function sigilStep(now){
+
+    const chapter = currentChapter();
+    const dur = chapters[chapterIndex][1];
+    const t = clamp01((now-chapterStart)/dur);
+    const feel = SIGIL_FEEL[chapter];
+
+    // On entering a chapter, give Crisis a hard outward shove
+    if(chapter !== sigilPrevChapter){
+        if(chapter==="Crisis"){
+            for(const p of SIGIL){
+                const dx = p.x-SIGIL_C;
+                const dy = p.y-SIGIL_C;
+                const d = Math.max(Math.hypot(dx,dy),1);
+                p.vx += dx/d*5;
+                p.vy += dy/d*5;
+            }
+        }
+        sigilPrevChapter = chapter;
+    }
+
+    // Ease color and brightness so chapters cross-fade
+    const tc = SIGIL_COLORS[chapter];
+    for(let c=0;c<3;c++) sigilColor[c] = lerp(sigilColor[c],tc[c],.05);
+    sigilAlpha = lerp(sigilAlpha,feel.alpha,.05);
+
+    for(const p of SIGIL){
+
+        const tgt = sigilTarget(p,chapter,t,now);
+        const tx = SIGIL_C + tgt[0]*SIGIL_R;
+        const ty = SIGIL_C + tgt[1]*SIGIL_R;
+
+        p.vx += (tx-p.x)*feel.k;
+        p.vy += (ty-p.y)*feel.k;
+
+        if(chapter==="Disturbance"){
+            p.vx += (Math.random()-.5)*2.2;
+            p.vy += (Math.random()-.5)*2.2;
+        }
+
+        p.vx *= feel.damp;
+        p.vy *= feel.damp;
+
+        p.x += p.vx;
+        p.y += p.vy;
+    }
+}
+
+function sigilRGBA(a){
+    return "rgba("+
+        Math.round(sigilColor[0])+","+
+        Math.round(sigilColor[1])+","+
+        Math.round(sigilColor[2])+","+a+")";
+}
+
+function drawSigil(now){
+
+    const chapter = currentChapter();
+    const dur = chapters[chapterIndex][1];
+    const t = clamp01((now-chapterStart)/dur);
+
+    sctx.clearRect(0,0,SIGIL_SIZE,SIGIL_SIZE);
+
+    // Faint frame that quietly fills as the chapter runs its course
+    sctx.lineWidth = 1;
+    sctx.strokeStyle = sigilRGBA(.10);
+    sctx.beginPath();
+    sctx.arc(SIGIL_C,SIGIL_C,SIGIL_C-3,0,Math.PI*2);
+    sctx.stroke();
+
+    sctx.strokeStyle = sigilRGBA(.35);
+    sctx.beginPath();
+    sctx.arc(
+        SIGIL_C,SIGIL_C,SIGIL_C-3,
+        -Math.PI/2,
+        -Math.PI/2 + t*Math.PI*2
+    );
+    sctx.stroke();
+
+    // Links: relationships are part of the story in two chapters
+    if(chapter==="Connection"){
+
+        sctx.lineWidth = 1;
+        sctx.strokeStyle = sigilRGBA(.28);
+
+        for(let i=0;i<SIGIL_N;i++){
+            const a = SIGIL[i];
+            for(let j=i+1;j<SIGIL_N;j++){
+                const b = SIGIL[j];
+                if(Math.hypot(a.x-b.x,a.y-b.y) < 22){
+                    sctx.beginPath();
+                    sctx.moveTo(a.x,a.y);
+                    sctx.lineTo(b.x,b.y);
+                    sctx.stroke();
+                }
+            }
+        }
+    }
+
+    if(chapter==="Learning"){
+
+        sctx.lineWidth = 1;
+        sctx.strokeStyle = sigilRGBA(.4);
+
+        for(let i=0;i<SIGIL_N-1;i++){
+            const a = SIGIL[i];
+            const b = SIGIL[i+1];
+            if(a.r1 < t*1.15 && b.r1 < t*1.15){
+                sctx.beginPath();
+                sctx.moveTo(a.x,a.y);
+                sctx.lineTo(b.x,b.y);
+                sctx.stroke();
+            }
+        }
+    }
+
+    // Particles
+    sctx.shadowColor = sigilRGBA(.8);
+    sctx.shadowBlur = 4;
+
+    for(const p of SIGIL){
+
+        let size = 1.7;
+        if(chapter==="Curiosity" && p.i===0) size = 3.2; // the curious core
+        if(chapter==="Crisis") size = 1.9 + Math.random()*.6;
+
+        sctx.beginPath();
+        sctx.arc(p.x,p.y,size,0,Math.PI*2);
+        sctx.fillStyle = sigilRGBA(sigilAlpha);
+        sctx.fill();
+    }
+
+    sctx.shadowBlur = 0;
+}
+
+function loop(now){
+
+    updateChapter(now);
+
+    updateAgents();
+
+    draw();
+
+    sigilStep(now);
+    drawSigil(now);
+
+    requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+</script>
+
+
+
+</body></html>
